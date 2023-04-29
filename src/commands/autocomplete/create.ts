@@ -1,3 +1,4 @@
+import * as child_process from 'child_process'
 import * as path from 'path'
 
 import * as fs from 'fs-extra'
@@ -54,7 +55,6 @@ export default class Create extends AutocompleteBase {
     await fs.writeFile(this.bashSetupScriptPath, this.bashSetupScript)
     await fs.writeFile(this.bashCompletionFunctionPath, this.bashCompletionFunction)
     await fs.writeFile(this.zshSetupScriptPath, this.zshSetupScript)
-
     // zsh
     const supportSpaces = this.config.topicSeparator === ' '
 
@@ -64,6 +64,7 @@ export default class Create extends AutocompleteBase {
       const zshCompWithSpaces = new ZshCompWithSpaces(this.config)
       await fs.writeFile(this.zshCompletionFunctionPath, zshCompWithSpaces.generate())
     }
+    await fs.writeFile(this.fishCompletionFunctionPath, this.fishCompletionFunction)
   }
 
   private get bashSetupScriptPath(): string {
@@ -89,6 +90,12 @@ export default class Create extends AutocompleteBase {
   private get bashCompletionFunctionPath(): string {
     // <cachedir>/autocomplete/functions/bash/<bin>.bash
     return path.join(this.bashFunctionsDir, `${this.cliBin}.bash`)
+  }
+
+  private get fishCompletionFunctionPath(): string {
+    // dynamically load path to completions file
+    const dir = child_process.execSync('pkg-config --variable completionsdir fish').toString().trimRight()
+    return `${dir}/${this.cliBin}.fish`
   }
 
   private get zshCompletionFunctionPath(): string {
@@ -213,13 +220,51 @@ compinit;\n`
     return bashScript.replace(/<CLI_BIN>/g, cliBin).replace(/<BASH_COMMANDS_WITH_FLAGS_LIST>/g, this.bashCommandsWithFlagsList)
   }
 
+  private get fishCompletionFunction(): string {
+    const cliBin = this.cliBin
+    const completions = []
+    completions.push(`
+function __fish_${cliBin}_needs_command
+  set cmd (commandline -opc)
+  if [ (count $cmd) -eq 1 ]
+    return 0
+  else
+    return 1
+  end
+end
+
+function  __fish_${cliBin}_using_command
+  set cmd (commandline -opc)
+  if [ (count $cmd) -gt 1 ]
+    if [ $argv[1] = $cmd[2] ]
+      return 0
+    end
+  end
+  return 1
+end`,
+    )
+
+    for (const command of this.commands) {
+      completions.push(`complete -f -c ${cliBin} -n '__fish_${cliBin}_needs_command' -a ${command.id} -d "${command.description}"`)
+      const flags = command.flags || {}
+      Object.keys(flags)
+      .filter(flag => flags[flag] && !flags[flag].hidden)
+      .forEach(flag => {
+        const f = flags[flag] || {}
+        const shortFlag = f.char ? `-s ${f.char}` : ''
+        const description = f.description ? `-d "${f.description}"` : ''
+        const options = f.options ? `-r -a "${f.options.join(' ')}"` : ''
+        completions.push(`complete -f -c ${cliBin} -n ' __fish_${cliBin}_using_command ${command.id}' -l ${flag} ${shortFlag} ${options} ${description}`)
+      })
+    }
+    return completions.join('\n')
+  }
+
   private get zshCompletionFunction(): string {
     const cliBin = this.cliBin
     const allCommandsMeta = this.genAllCommandsMetaString
     const caseStatementForFlagsMeta = this.genCaseStatementForFlagsMetaString
-
     return `#compdef ${cliBin}
-
 _${cliBin} () {
   local _command_id=\${words[2]}
   local _cur=\${words[CURRENT]}
