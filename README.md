@@ -26,34 +26,5 @@ Docs: https://oclif.io/docs/topic_separator
 
 # Commands
 <!-- commands -->
-* [`oclif-example autocomplete [SHELL]`](#oclif-example-autocomplete-shell)
 
-## `oclif-example autocomplete [SHELL]`
-
-display autocomplete installation instructions
-
-```
-USAGE
-  $ oclif-example autocomplete [SHELL] [-r]
-
-ARGUMENTS
-  SHELL  shell type
-
-FLAGS
-  -r, --refresh-cache  Refresh cache (ignores displaying instructions)
-
-DESCRIPTION
-  display autocomplete installation instructions
-
-EXAMPLES
-  $ oclif-example autocomplete
-
-  $ oclif-example autocomplete bash
-
-  $ oclif-example autocomplete zsh
-
-  $ oclif-example autocomplete --refresh-cache
-```
-
-_See code: [src/commands/autocomplete/index.ts](https://github.com/oclif/plugin-autocomplete/blob/v1.2.0/src/commands/autocomplete/index.ts)_
 <!-- commandsstop -->
